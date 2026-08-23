@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- Fondo circular o contenedor -->
+  <path
+      android:fillColor="#1E88E5"
+      android:pathData="M54,4 m50,50 a50,50 0,1 1,-100 0 a50,50 0,1 1,100 0" />
+  <!-- Letra D mayúscula en negrita, color blanco para contraste superior -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M34,30 h16 c12,0 20,8 20,20 s-8,20 -20,20 h-16 v-40 z M46,40 v20 h4 c6,0 10,-4 10,-10 s-4,-10 -10,-10 h-4 z" />
+  <!-- Letras NFC más pequeñas al pie de la D -->
+  <path
+      android:fillColor="#BBDEFB"
+      android:pathData="M38,74 h3 v8 h-3 v-8 z M43,74 h2 l2.5,5.5 l2.5,-5.5 h2 v8 h-2 v-4.8 l-2,4.3 h-1 l-2,-4.3 v4.8 h-2 v-8 z M55,74 h3 c1.5,0 2.5,1 2.5,2.5 s-1,2.5 -2.5,2.5 h-1 v3 h-2 v-8 z M56,76.5 h1.5 c0.6,0 1,-0.4 1,-1 s-0.4,-1 -1,-1 h-1.5 v2 z" />
+</vector>
