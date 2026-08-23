@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Targes NFC</string>
+    <string name="hce_service_description">Targes NFC Contenedores Service</string>
+    <string name="aid_group_description">Contenedores Municipales AID</string>
+</resources>
