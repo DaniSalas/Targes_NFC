@@ -35,6 +35,12 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import com.danielsalas.targes_nfc.nfc.HceLogManager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.ui.text.font.FontFamily
+
 class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private var pendingIntent: PendingIntent? = null
@@ -118,6 +124,7 @@ fun MainAppScreen(activity: MainActivity) {
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCard by remember { mutableStateOf<CardEntity?>(null) }
     var showScanDialog by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
     var cardNameInput by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -132,7 +139,12 @@ fun MainAppScreen(activity: MainActivity) {
         topBar = {
             TopAppBar(
                 title = { Text("Targes NFC - Contenedores", color = Color.White, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
+                actions = {
+                    IconButton(onClick = { showLogs = !showLogs }) {
+                        Icon(Icons.Default.Terminal, contentDescription = "Ver Logs", tint = Color.White)
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -151,6 +163,25 @@ fun MainAppScreen(activity: MainActivity) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            if (showLogs) {
+                Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color.Black).padding(8.dp)) {
+                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Consola HCE (Tiempo real)", color = Color.Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Limpiar", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.clickable { HceLogManager.clear() })
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (HceLogManager.logs.isEmpty()) {
+                            Text("Esperando comunicación del lector...", color = Color.DarkGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        HceLogManager.logs.forEach { log ->
+                            Text(log, color = Color.LightGray, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+                HorizontalDivider(color = Color.DarkGray)
+            }
+            
             if (cards.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
@@ -214,6 +245,21 @@ fun MainAppScreen(activity: MainActivity) {
                                     Text(scannedCard.compatibilityDetails, fontSize = 12.sp, color = Color.DarkGray)
                                 }
                             }
+
+                            if (!scannedCard.contentDump.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Vista previa de memoria:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(100.dp)
+                                        .background(Color(0xFFF0F0F0))
+                                        .padding(4.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(scannedCard.contentDump, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                }
+                            }
                         }
                     }
                 },
@@ -230,7 +276,9 @@ fun MainAppScreen(activity: MainActivity) {
                                                 cardType = scannedCard.cardType,
                                                 technologies = scannedCard.technologies,
                                                 compatibilityStatus = scannedCard.compatibilityStatus,
-                                                compatibilityDetails = scannedCard.compatibilityDetails
+                                                compatibilitySummary = scannedCard.compatibilitySummary,
+                                                compatibilityDetails = scannedCard.compatibilityDetails,
+                                                contentDump = scannedCard.contentDump
                                             )
                                         )
                                         withContext(Dispatchers.Main) {
@@ -267,6 +315,28 @@ fun MainAppScreen(activity: MainActivity) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(card.compatibilityDetails, fontSize = 13.sp)
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    if (!card.contentDump.isNullOrBlank()) {
+                        Text("Contenido de Memoria:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .background(Color(0xFFEEEEEE))
+                                .padding(8.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = card.contentDump,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.DarkGray
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Para emular esta tarjeta y abrir el contenedor, mantén la pantalla encendida y acerca el móvil al lector NFC.", fontSize = 13.sp, color = Color.Gray)

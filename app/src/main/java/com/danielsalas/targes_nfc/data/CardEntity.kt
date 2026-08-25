@@ -12,6 +12,8 @@ data class CardEntity(
     val cardType: String,
     val technologies: String,
     val compatibilityStatus: String,
+    val compatibilitySummary: String,
     val compatibilityDetails: String,
+    val contentDump: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

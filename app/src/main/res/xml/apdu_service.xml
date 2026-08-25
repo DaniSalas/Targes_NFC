@@ -3,6 +3,19 @@
     android:requireDeviceUnlock="false">
     <aid-group android:category="other"
         android:description="@string/aid_group_description">
+        <!-- AIDs de prueba y genéricos -->
         <aid android:value="F222222222" />
+        <aid android:value="F001020304" />
+        <!-- MIFARE DESFire (Muy común en ciudades) -->
+        <aid android:value="A00000030800001000" />
+        <aid android:value="A0000003080000" />
+        <!-- HID iClass / Mobile Access -->
+        <aid android:value="A000000116" />
+        <!-- Gira / NDEF Standard -->
+        <aid android:value="D2760000850101" />
+        <!-- Calypso (Transporte/Acceso Europa) -->
+        <aid android:value="A000000077010107" />
+        <!-- Legic -->
+        <aid android:value="A000000018434D" />
     </aid-group>
 </host-apdu-service>

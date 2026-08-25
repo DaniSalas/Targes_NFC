@@ -24,7 +24,7 @@ object CardCompatibilityEvaluator {
             isMifareClassic || isMifareUltralight -> CompatibilityResult(
                 status = "RESTRICTED",
                 summary = "Restringido por Android (UID Fijo)",
-                details = "UID detectado: $uidHex. Esta tarjeta es una tarjeta basada en UID físico fijo o memoria Mifare. Android NO permite alterar el UID de hardware del teléfono por software sin root. El contenedor probablemente rechazará el emulado a menos que reconozca el AID/UID virtual generado por HCE."
+                details = "UID detectado: $uidHex. Esta tarjeta es una tarjeta basada en UID físico fijo. Android NO permite alterar el UID de hardware del teléfono. Hemos intentado leer el contenido de la memoria (ver abajo) para ver si hay datos que podamos usar."
             )
             isNfcA -> CompatibilityResult(
                 status = "RESTRICTED",
