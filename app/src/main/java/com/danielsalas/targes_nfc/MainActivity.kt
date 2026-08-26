@@ -41,11 +41,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.ui.text.font.FontFamily
 
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.WarningAmber
+
 class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private var pendingIntent: PendingIntent? = null
     
     var scannedCardState = mutableStateOf<ScannedCardData?>(null)
+    var writeModeUid = mutableStateOf<String?>(null) // UID que queremos escribir
+    var writeStatus = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,8 +111,18 @@ class MainActivity : ComponentActivity() {
             }
 
             tag?.let {
-                val parsed = NfcScannerManager.parseTag(it)
-                scannedCardState.value = parsed
+                if (writeModeUid.value != null) {
+                    val result = NfcScannerManager.writeUidToTag(it, writeModeUid.value!!)
+                    if (result.isSuccess) {
+                        writeStatus.value = "✅ ÉXITO: UID grabado."
+                        writeModeUid.value = null // Desactivar modo escritura
+                    } else {
+                        writeStatus.value = "❌ ERROR: ${result.exceptionOrNull()?.message}"
+                    }
+                } else {
+                    val parsed = NfcScannerManager.parseTag(it)
+                    scannedCardState.value = parsed
+                }
             }
         }
     }
@@ -123,6 +138,7 @@ fun MainAppScreen(activity: MainActivity) {
     var cards by remember { mutableStateOf<List<CardEntity>>(emptyList()) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCard by remember { mutableStateOf<CardEntity?>(null) }
+    var showWriteDialog by remember { mutableStateOf(false) }
     var showScanDialog by remember { mutableStateOf(false) }
     var showLogs by remember { mutableStateOf(false) }
     var cardNameInput by remember { mutableStateOf("") }
@@ -134,6 +150,59 @@ fun MainAppScreen(activity: MainActivity) {
     }
 
     val scannedCard = activity.scannedCardState.value
+    val currentWriteUid = activity.writeModeUid.value
+    val writeStatus = activity.writeStatus.value
+
+    if (showWriteDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showWriteDialog = false
+                activity.writeModeUid.value = null
+                activity.writeStatus.value = null
+            },
+            title = { Text("Clonar en Pegatina NFC") },
+            text = {
+                Column {
+                    Icon(
+                        Icons.Default.WarningAmber, 
+                        contentDescription = null, 
+                        tint = Color(0xFFFFA000), 
+                        modifier = Modifier.size(48.dp).align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Esta función grabará el UID de la tarjeta en una pegatina NFC compatible (CUID/Magic Gen2).", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (writeStatus == null) {
+                        Text("ACERCA LA PEGATINA AHORA...", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Text(writeStatus, fontWeight = FontWeight.Bold, color = if (writeStatus.contains("ÉXITO")) Color(0xFF2E7D32) else Color.Red)
+                    }
+                }
+            },
+            confirmButton = {
+                if (writeStatus != null) {
+                    Button(onClick = { 
+                        showWriteDialog = false
+                        activity.writeStatus.value = null
+                    }) {
+                        Text("Aceptar")
+                    }
+                }
+            },
+            dismissButton = {
+                if (writeStatus == null) {
+                    TextButton(onClick = { 
+                        showWriteDialog = false 
+                        activity.writeModeUid.value = null
+                    }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -308,6 +377,22 @@ fun MainAppScreen(activity: MainActivity) {
             title = { Text(card.name) },
             text = {
                 Column {
+                    Button(
+                        onClick = {
+                            activity.writeModeUid.value = card.uid
+                            activity.writeStatus.value = null
+                            showWriteDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A047))
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clonar UID en Pegatina", color = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text("UID: ${card.uid}", fontWeight = FontWeight.Bold)
                     Text("Tecnología: ${card.cardType} (${card.technologies})")
                     Spacer(modifier = Modifier.height(8.dp))
@@ -338,13 +423,14 @@ fun MainAppScreen(activity: MainActivity) {
                     }
 
                     HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text("Para emular esta tarjeta y abrir el contenedor, mantén la pantalla encendida y acerca el móvil al lector NFC.", fontSize = 13.sp, color = Color.Gray)
                 }
             },
             confirmButton = {
                 Button(onClick = { selectedCard = null }) {
-                    Text("Cerrar / Activar")
+                    Text("Cerrar")
                 }
             }
         )
