@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
     private var pendingIntent: PendingIntent? = null
     
     var scannedCardState = mutableStateOf<ScannedCardData?>(null)
-    var writeModeUid = mutableStateOf<String?>(null) // UID que queremos escribir
+    var writeModeCard = mutableStateOf<CardEntity?>(null) // Tarjeta completa que queremos clonar
     var writeStatus = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,11 +111,12 @@ class MainActivity : ComponentActivity() {
             }
 
             tag?.let {
-                if (writeModeUid.value != null) {
-                    val result = NfcScannerManager.writeUidToTag(it, writeModeUid.value!!)
+                val cardToWrite = writeModeCard.value
+                if (cardToWrite != null) {
+                    val result = NfcScannerManager.writeFullCardToTag(it, cardToWrite)
                     if (result.isSuccess) {
-                        writeStatus.value = "✅ ÉXITO: UID grabado."
-                        writeModeUid.value = null // Desactivar modo escritura
+                        writeStatus.value = "✅ ÉXITO: ${result.getOrNull()}"
+                        writeModeCard.value = null // Desactivar modo escritura
                     } else {
                         writeStatus.value = "❌ ERROR: ${result.exceptionOrNull()?.message}"
                     }
@@ -150,17 +151,17 @@ fun MainAppScreen(activity: MainActivity) {
     }
 
     val scannedCard = activity.scannedCardState.value
-    val currentWriteUid = activity.writeModeUid.value
+    val currentWriteCard = activity.writeModeCard.value
     val writeStatus = activity.writeStatus.value
 
     if (showWriteDialog) {
         AlertDialog(
             onDismissRequest = { 
                 showWriteDialog = false
-                activity.writeModeUid.value = null
+                activity.writeModeCard.value = null
                 activity.writeStatus.value = null
             },
-            title = { Text("Clonar en Pegatina NFC") },
+            title = { Text("Clonar Tarjeta Completa en Pegatina") },
             text = {
                 Column {
                     Icon(
@@ -170,7 +171,7 @@ fun MainAppScreen(activity: MainActivity) {
                         modifier = Modifier.size(48.dp).align(Alignment.CenterHorizontally)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Esta función grabará el UID de la tarjeta en una pegatina NFC compatible (CUID/Magic Gen2).", fontWeight = FontWeight.Bold)
+                    Text("Esta función grabará el UID y todos los bloques de memoria leídos en la pegatina NFC (CUID/Magic Gen2).", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(12.dp))
                     if (writeStatus == null) {
                         Text("ACERCA LA PEGATINA AHORA...", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
@@ -195,7 +196,7 @@ fun MainAppScreen(activity: MainActivity) {
                 if (writeStatus == null) {
                     TextButton(onClick = { 
                         showWriteDialog = false 
-                        activity.writeModeUid.value = null
+                        activity.writeModeCard.value = null
                     }) {
                         Text("Cancelar")
                     }
@@ -379,7 +380,7 @@ fun MainAppScreen(activity: MainActivity) {
                 Column {
                     Button(
                         onClick = {
-                            activity.writeModeUid.value = card.uid
+                            activity.writeModeCard.value = card
                             activity.writeStatus.value = null
                             showWriteDialog = true
                         },
@@ -388,7 +389,7 @@ fun MainAppScreen(activity: MainActivity) {
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Clonar UID en Pegatina", color = Color.White)
+                        Text("Clonar Tarjeta Completa (UID + Memoria)", color = Color.White)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

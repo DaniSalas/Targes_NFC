@@ -5,6 +5,7 @@ import android.nfc.tech.MifareClassic
 import android.nfc.tech.MifareUltralight
 import android.nfc.tech.NfcA
 import android.util.Log
+import com.danielsalas.targes_nfc.data.CardEntity
 
 data class ScannedCardData(
     val uid: String,
@@ -45,6 +46,100 @@ object NfcScannerManager {
             compatibilityDetails = compatibility.details,
             contentDump = dump
         )
+    }
+
+    private fun parseDumpToBlocks(dump: String): Map<Int, ByteArray> {
+        val map = mutableMapOf<Int, ByteArray>()
+        val lines = dump.lines()
+        var currentSector = -1
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("Sector ")) {
+                val sectorStr = trimmed.substringAfter("Sector ").substringBefore(":").trim()
+                currentSector = sectorStr.toIntOrNull() ?: -1
+            } else if (trimmed.startsWith("B") && currentSector >= 0) {
+                val parts = trimmed.split(":")
+                if (parts.size >= 2) {
+                    val blockNumStr = parts[0].trim().removePrefix("B").substringBefore(" ").trim()
+                    val blockOffset = blockNumStr.toIntOrNull() ?: continue
+                    val hexData = parts[1].trim()
+                    if (hexData.length >= 32) {
+                        try {
+                            val cleanHex = hexData.substring(0, 32)
+                            val bytes = cleanHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                            val absoluteBlock = if (currentSector < 32) {
+                                currentSector * 4 + blockOffset
+                            } else {
+                                32 * 4 + (currentSector - 32) * 16 + blockOffset
+                            }
+                            map[absoluteBlock] = bytes
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        }
+        return map
+    }
+
+    fun writeFullCardToTag(tag: Tag, card: CardEntity): Result<String> {
+        val mifare = MifareClassic.get(tag) ?: return Result.failure(Exception("La pegatina debe ser Mifare Classic"))
+        
+        try {
+            mifare.connect()
+            
+            // 1. Escribir UID en Bloque 0
+            val targetUidHex = card.uid
+            val uidBytes = targetUidHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            if (uidBytes.size != 4) return Result.failure(Exception("Solo se soportan UIDs de 4 bytes para clonado estándar."))
+
+            var bcc: Byte = 0
+            for (b in uidBytes) bcc = (bcc.toInt() xor b.toInt()).toByte()
+
+            val block0 = ByteArray(16)
+            System.arraycopy(uidBytes, 0, block0, 0, 4)
+            block0[4] = bcc
+            block0[5] = 0x08.toByte() // SAK
+            block0[6] = 0x04.toByte() // ATQA
+            block0[7] = 0x00.toByte()
+            for (i in 8..15) block0[i] = 0x00.toByte()
+
+            if (!mifare.authenticateSectorWithKeyA(0, MifareClassic.KEY_DEFAULT)) {
+                mifare.close()
+                return Result.failure(Exception("Error autenticando Sector 0. ¿Es una pegatina CUID/Magic Gen2?"))
+            }
+            mifare.writeBlock(0, block0)
+
+            // 2. Escribir bloques de memoria adicionales desde el contentDump
+            val blocksMap = parseDumpToBlocks(card.contentDump ?: "")
+            var writtenBlocksCount = 0
+
+            val sectorCount = mifare.sectorCount
+            for (i in 0 until sectorCount) {
+                if (mifare.authenticateSectorWithKeyA(i, MifareClassic.KEY_DEFAULT)) {
+                    val blockCount = mifare.getBlockCountInSector(i)
+                    val firstBlock = mifare.sectorToBlock(i)
+                    for (j in 0 until blockCount) {
+                        if (i == 0 && j == 0) continue // Ya escrito (Bloque 0)
+                        
+                        val absBlock = firstBlock + j
+                        val blockData = blocksMap[absBlock]
+                        if (blockData != null) {
+                            try {
+                                mifare.writeBlock(absBlock, blockData)
+                                writtenBlocksCount++
+                            } catch (e: Exception) {
+                                Log.w("NFC_CLONE", "No se pudo escribir bloque $absBlock: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+
+            mifare.close()
+            return Result.success("UID + $writtenBlocksCount bloques de memoria clonados correctamente.")
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
     }
 
     fun writeUidToTag(tag: Tag, targetUidHex: String): Result<String> {
